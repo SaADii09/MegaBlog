@@ -1,4 +1,4 @@
-import React from "react"
+import React from "react";
 
 export default function Button({
     children,
@@ -15,5 +15,5 @@ export default function Button({
         >
             {children}
         </button>
-    )
+    );
 }
