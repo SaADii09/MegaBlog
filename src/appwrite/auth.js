@@ -8,7 +8,14 @@ export class AuthService {
     constructor() {
         this.client
             .setEndpoint(conf.appwriteUrl)
-            .setProject(conf.appwriteProjectId);
+            .setProject(conf.appwriteProjectId)
+            .setLocale('en-US')
+            .setSelfSigned(true);
+
+        // Add custom headers including CORS headers
+        this.client.headers['X-Requested-With'] = 'XMLHttpRequest';
+        this.client.headers['Origin'] = window.location.origin;
+
         this.account = new Account(this.client);
     }
 

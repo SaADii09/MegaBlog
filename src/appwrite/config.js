@@ -9,7 +9,14 @@ export class Service {
     constructor() {
         this.client
             .setEndpoint(conf.appwriteUrl)
-            .setProject(conf.appwriteProjectId);
+            .setProject(conf.appwriteProjectId)
+            .setLocale('en-US') // Add locale
+            .setSelfSigned(true); // Enable self-signed certs in dev
+
+        // Add custom headers including CORS headers
+        this.client.headers['X-Requested-With'] = 'XMLHttpRequest';
+        this.client.headers['Origin'] = window.location.origin;
+
         this.databases = new Databases(this.client);
         this.bucket = new Storage(this.client);
     }
