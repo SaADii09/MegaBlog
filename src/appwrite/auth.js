@@ -8,14 +8,13 @@ export class AuthService {
     constructor() {
         this.client
             .setEndpoint(conf.appwriteUrl)
-            .setProject(conf.appwriteProjectId)
-            .setLocale('en-US')
-            .setSelfSigned(true);
+            .setProject(conf.appwriteProjectId);
 
-        // Add custom headers including CORS headers
-        this.client.headers['X-Requested-With'] = 'XMLHttpRequest';
-        this.client.headers['Origin'] = window.location.origin;
+        // Enable session handling
+        this.client.setEndpoint(conf.appwriteUrl);
+        this.client.setProject(conf.appwriteProjectId);
 
+        // Create account instance
         this.account = new Account(this.client);
     }
 
@@ -51,12 +50,14 @@ export class AuthService {
 
     async getCurrentUser() {
         try {
-            return await this.account.get();
+            const user = await this.account.get();
+            if (!user) throw new Error("User not found");
+            return user;
         } catch (error) {
-            console.log("Appwrite serive :: getCurrentUser :: error", error);
+            console.error("Appwrite service :: getCurrentUser :: error", error);
+            // Return null to indicate no authenticated user
+            return null;
         }
-
-        return null;
     }
 
     async logout() {
@@ -69,5 +70,4 @@ export class AuthService {
 }
 
 const authService = new AuthService();
-
 export default authService;

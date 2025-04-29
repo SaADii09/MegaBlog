@@ -9,14 +9,9 @@ export class Service {
     constructor() {
         this.client
             .setEndpoint(conf.appwriteUrl)
-            .setProject(conf.appwriteProjectId)
-            .setLocale('en-US') // Add locale
-            .setSelfSigned(true); // Enable self-signed certs in dev
+            .setProject(conf.appwriteProjectId);
 
-        // Add custom headers including CORS headers
-        this.client.headers['X-Requested-With'] = 'XMLHttpRequest';
-        this.client.headers['Origin'] = window.location.origin;
-
+        // Initialize services
         this.databases = new Databases(this.client);
         this.bucket = new Storage(this.client);
     }
@@ -102,14 +97,44 @@ export class Service {
 
     async uploadFile(file) {
         try {
-            return await this.bucket.createFile(
+            if (!file) {
+                throw new Error("No file provided");
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                // 10MB limit
+                throw new Error("File size too large. Maximum size is 10MB");
+            }
+
+            const allowedTypes = [
+                "image/jpeg",
+                "image/png",
+                "image/gif",
+                "image/jpg",
+            ];
+            if (!allowedTypes.includes(file.type)) {
+                throw new Error(
+                    "Invalid file type. Only JPG, PNG and GIF images are allowed"
+                );
+            }
+
+            const uploadedFile = await this.bucket.createFile(
                 conf.appwriteBucketId,
                 ID.unique(),
                 file
             );
+
+            if (!uploadedFile || !uploadedFile.$id) {
+                throw new Error("File upload failed");
+            }
+
+            return uploadedFile;
         } catch (error) {
-            console.log("Appwrite serive :: uploadFile :: error", error);
-            return false;
+            console.error(
+                "Appwrite service :: uploadFile :: error",
+                error.message
+            );
+            throw error; // Propagate the error to handle it in the UI
         }
     }
 
@@ -124,7 +149,13 @@ export class Service {
     }
 
     getFilePreview(fileId) {
-        return this.bucket.getFilePreview(conf.appwriteBucketId, fileId);
+        try {
+            return this.bucket.getFilePreview(conf.appwriteBucketId, fileId)
+                .href;
+        } catch (error) {
+            console.error("Appwrite service :: getFilePreview :: error", error);
+            return null;
+        }
     }
 }
 

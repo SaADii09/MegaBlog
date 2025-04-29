@@ -1,30 +1,30 @@
-import React, { useState } from "react"
-import authService from "../appwrite/auth"
-import { Link, useNavigate } from "react-router-dom"
-import { login } from "../store/authSlice"
-import { Button, Input, Logo } from "./index.js"
-import { useDispatch } from "react-redux"
-import { useForm } from "react-hook-form"
+import React, { useState } from "react";
+import authService from "../appwrite/auth";
+import { Link, useNavigate } from "react-router-dom";
+import { login } from "../store/authSlice";
+import { Button, Input, Logo } from "./index.js";
+import { useDispatch } from "react-redux";
+import { useForm } from "react-hook-form";
 
 function Signup() {
-    const navigate = useNavigate()
-    const [error, setError] = useState("")
-    const dispatch = useDispatch()
-    const { register, handleSubmit } = useForm()
+    const navigate = useNavigate();
+    const [error, setError] = useState("");
+    const dispatch = useDispatch();
+    const { register, handleSubmit } = useForm();
 
     const create = async (data) => {
-        setError("")
+        setError("");
         try {
-            const userData = await authService.createAccount(data)
+            const userData = await authService.createAccount(data);
             if (userData) {
-                const userData = await authService.getCurrentUser()
-                if (userData) dispatch(login(userData))
-                navigate("/")
+                const currentUser = await authService.getCurrentUser();
+                if (currentUser) dispatch(login({ userData: currentUser }));
+                navigate("/");
             }
         } catch (error) {
-            setError(error.message)
+            setError(error.message);
         }
-    }
+    };
 
     return (
         <div className="flex items-center justify-center">
@@ -91,7 +91,7 @@ function Signup() {
                 </form>
             </div>
         </div>
-    )
+    );
 }
 
-export default Signup
+export default Signup;

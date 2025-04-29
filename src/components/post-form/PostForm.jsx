@@ -1,11 +1,13 @@
-import React, { useCallback } from "react"
-import { useForm } from "react-hook-form"
-import { Button, Input, RTE, Select } from ".."
-import appwriteService from "../../appwrite/config"
-import { useNavigate } from "react-router-dom"
-import { useSelector } from "react-redux"
+import React, { useCallback, useState } from "react";
+import { useForm } from "react-hook-form";
+import { Button, Input, RTE, Select } from "..";
+import appwriteService from "../../appwrite/config";
+import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 export default function PostForm({ post }) {
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
     const { register, handleSubmit, watch, setValue, control, getValues } =
         useForm({
             defaultValues: {
@@ -14,46 +16,65 @@ export default function PostForm({ post }) {
                 content: post?.content || "",
                 status: post?.status || "active",
             },
-        })
+        });
 
-    const navigate = useNavigate()
-    const userData = useSelector((state) => state.auth.userData)
+    const navigate = useNavigate();
+    const userData = useSelector((state) => state.auth.userData);
 
     const submit = async (data) => {
-        if (post) {
-            const file = data.image[0]
-                ? await appwriteService.uploadFile(data.image[0])
-                : null
+        setError("");
+        setLoading(true);
+        try {
+            if (post) {
+                let fileId = post.featuredImage;
+                if (data.image && data.image[0]) {
+                    const file = await appwriteService.uploadFile(
+                        data.image[0]
+                    );
+                    if (file) {
+                        fileId = file.$id;
+                        await appwriteService.deleteFile(post.featuredImage);
+                    }
+                }
 
-            if (file) {
-                appwriteService.deleteFile(post.featuredImage)
-            }
-
-            const dbPost = await appwriteService.updatePost(post.$id, {
-                ...data,
-                featuredImage: file ? file.$id : undefined,
-            })
-
-            if (dbPost) {
-                navigate(`/post/${dbPost.$id}`)
-            }
-        } else {
-            const file = await appwriteService.uploadFile(data.image[0])
-
-            if (file) {
-                const fileId = file.$id
-                data.featuredImage = fileId
-                const dbPost = await appwriteService.createPost({
+                const dbPost = await appwriteService.updatePost(post.$id, {
                     ...data,
-                    userId: userData.$id,
-                })
+                    featuredImage: fileId,
+                });
 
                 if (dbPost) {
-                    navigate(`/post/${dbPost.$id}`)
+                    navigate(`/post/${dbPost.$id}`);
+                }
+            } else {
+                if (!userData?.$id) {
+                    throw new Error("User data not available");
+                }
+
+                if (!data.image?.[0]) {
+                    throw new Error("Featured image is required");
+                }
+
+                const file = await appwriteService.uploadFile(data.image[0]);
+                if (!file) {
+                    throw new Error("File upload failed");
+                }
+
+                const dbPost = await appwriteService.createPost({
+                    ...data,
+                    featuredImage: file.$id,
+                    userId: userData.$id,
+                });
+
+                if (dbPost) {
+                    navigate(`/post/${dbPost.$id}`);
                 }
             }
+        } catch (error) {
+            setError(error.message);
+        } finally {
+            setLoading(false);
         }
-    }
+    };
 
     const slugTransform = useCallback((value) => {
         if (value && typeof value === "string")
@@ -61,25 +82,30 @@ export default function PostForm({ post }) {
                 .trim()
                 .toLowerCase()
                 .replace(/[^a-zA-Z\d\s]+/g, "-")
-                .replace(/\s/g, "-")
+                .replace(/\s/g, "-");
 
-        return ""
-    }, [])
+        return "";
+    }, []);
 
     React.useEffect(() => {
         const subscription = watch((value, { name }) => {
             if (name === "title") {
                 setValue("slug", slugTransform(value.title), {
                     shouldValidate: true,
-                })
+                });
             }
-        })
+        });
 
-        return () => subscription.unsubscribe()
-    }, [watch, slugTransform, setValue])
+        return () => subscription.unsubscribe();
+    }, [watch, slugTransform, setValue]);
 
     return (
         <form onSubmit={handleSubmit(submit)} className="flex flex-wrap">
+            {error && (
+                <div className="w-full mb-4 p-3 bg-red-100 text-red-600 rounded">
+                    {error}
+                </div>
+            )}
             <div className="w-2/3 px-2">
                 <Input
                     label="Title :"
@@ -95,7 +121,7 @@ export default function PostForm({ post }) {
                     onInput={(e) => {
                         setValue("slug", slugTransform(e.currentTarget.value), {
                             shouldValidate: true,
-                        })
+                        });
                     }}
                 />
                 <RTE
@@ -113,7 +139,7 @@ export default function PostForm({ post }) {
                     accept="image/png, image/jpg, image/jpeg, image/gif"
                     {...register("image", { required: !post })}
                 />
-                {post && (
+                {post && post.featuredImage && (
                     <div className="w-full mb-4">
                         <img
                             src={appwriteService.getFilePreview(
@@ -121,6 +147,10 @@ export default function PostForm({ post }) {
                             )}
                             alt={post.title}
                             className="rounded-lg"
+                            onError={(e) => {
+                                e.target.src =
+                                    "https://via.placeholder.com/400x300?text=Image+Not+Found";
+                            }}
                         />
                     </div>
                 )}
@@ -134,10 +164,11 @@ export default function PostForm({ post }) {
                     type="submit"
                     bgColor={post ? "bg-green-500" : undefined}
                     className="w-full"
+                    disabled={loading}
                 >
-                    {post ? "Update" : "Submit"}
+                    {loading ? "Processing..." : post ? "Update" : "Submit"}
                 </Button>
             </div>
         </form>
-    )
+    );
 }
